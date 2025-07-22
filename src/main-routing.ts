@@ -61,7 +61,7 @@ interface Session {
 }
 
 class PathBuilderApp {
-  private map: L.Map;
+  private map!: L.Map; // Initialized in constructor
   private segments: PathSegment[] = [];
   private isBuilding: boolean = false;
   private currentWaypoints: L.LatLng[] = [];
@@ -78,7 +78,7 @@ class PathBuilderApp {
   private polygonCounter: number = 1;
   
   // Interest Points mode properties
-  private interestPointMode: boolean = false;
+  // private _interestPointMode: boolean = false; // Commented out - unused
   private selectedPointType: InterestPointType | null = null;
   private pointTypes: InterestPointType[] = [];
   private interestPoints: InterestPoint[] = [];
@@ -297,16 +297,18 @@ class PathBuilderApp {
       waypoints: segmentWaypoints.map(wp => L.Routing.waypoint(wp)),
       routeWhileDragging: true,
       addWaypoints: false,
-      createMarker: () => null, // We handle markers ourselves
+      // createMarker: () => null, // We handle markers ourselves - removed due to strict types
       lineOptions: {
-        styles: [{ color: '#28a745', weight: 4, opacity: 0.8 }]
+        styles: [{ color: '#28a745', weight: 4, opacity: 0.8 }],
+        extendToWaypoints: true,
+        missingRouteTolerance: 10
       },
       show: false, // Hide the directions panel
       fitSelectedRoutes: false, // Prevent auto-zoom when route is calculated
       router: L.Routing.osrmv1({
         serviceUrl: 'https://routing.openstreetmap.de/routed-foot/route/v1',
-        profile: 'foot-walking', // Proper walking profile on walking server
-        optimize: false
+        profile: 'foot-walking' // Proper walking profile on walking server
+        // Note: optimize option removed as it's not part of the official API
       })
     }).addTo(this.map);
 
@@ -506,16 +508,17 @@ class PathBuilderApp {
         waypoints: segment.waypoints.map(wp => L.Routing.waypoint(wp)),
         routeWhileDragging: false,
         addWaypoints: false,
-        createMarker: () => null,
+        // createMarker: () => null, // Removed due to strict types
         lineOptions: {
-          styles: [{ color: color, weight: 4, opacity: 0.8 }]
+          styles: [{ color: color, weight: 4, opacity: 0.8 }],
+          extendToWaypoints: true,
+          missingRouteTolerance: 10
         },
         show: false,
         fitSelectedRoutes: false, // Prevent auto-zoom when route is calculated
         router: L.Routing.osrmv1({
           serviceUrl: 'https://routing.openstreetmap.de/routed-foot/route/v1',
-          profile: 'foot-walking',
-          optimize: false
+          profile: 'foot-walking'
         })
       }).addTo(this.map);
       
@@ -583,7 +586,7 @@ class PathBuilderApp {
     
     // Highlight all segments in this path
     path.segments.forEach(segment => {
-      const bounds = L.latLngBounds(segment.waypoints);
+      // const bounds = L.latLngBounds(segment.waypoints); // Unused but kept for potential future use
       const highlightOverlay = L.polyline(segment.waypoints, {
         color: '#ffeb3b',
         weight: 8,
@@ -625,7 +628,7 @@ class PathBuilderApp {
     
     // Reset all modes
     this.polygonMode = false;
-    this.interestPointMode = false;
+    // this.interestPointMode = false; // Property removed - not needed
     this.isBuilding = false;
     
     // Hide all control sections
@@ -642,7 +645,7 @@ class PathBuilderApp {
       
     } else if (mode === 'interest') {
       // Switch to interest points mode
-      this.interestPointMode = true;
+      // this.interestPointMode = true; // Property removed - not needed
       this.clearPath();
       this.clearPolygon();
       if (interestControls) interestControls.style.display = 'block';
@@ -1702,16 +1705,17 @@ class PathBuilderApp {
           waypoints: segment.waypoints.map(wp => L.Routing.waypoint(wp)),
           routeWhileDragging: false,
           addWaypoints: false,
-          createMarker: () => null,
+          // createMarker: () => null, // Removed due to strict types
           lineOptions: {
-            styles: [{ color: path.color, weight: 4, opacity: 0.8 }]
+            styles: [{ color: path.color, weight: 4, opacity: 0.8 }],
+            extendToWaypoints: true,
+            missingRouteTolerance: 10
           },
           show: false,
           fitSelectedRoutes: false,
           router: L.Routing.osrmv1({
             serviceUrl: 'https://routing.openstreetmap.de/routed-foot/route/v1',
-            profile: 'foot-walking',
-            optimize: false
+            profile: 'foot-walking'
           })
         }).addTo(this.map);
         

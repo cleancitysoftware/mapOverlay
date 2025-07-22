@@ -12,6 +12,7 @@
   "license": "ISC",
   "description": "",
   "devDependencies": {
+    "@types/leaflet-routing-machine": "^3.2.8",
     "@types/node": "^24.1.0",
     "typescript": "^5.8.3",
     "vite": "^7.0.5"
