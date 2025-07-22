@@ -247,6 +247,194 @@ body {
   z-index: 1001;
 }
 
+/* Interest Points Styles */
+@keyframes pulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.3); }
+  100% { transform: scale(1); }
+}
+
+.pulsing-marker {
+  animation: pulse 0.8s ease-in-out infinite;
+}
+
+#point-type-controls {
+  margin-bottom: 15px;
+}
+
+#type-selection {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+#point-type-dropdown {
+  flex: 1;
+  padding: 6px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+}
+
+#add-type-btn {
+  padding: 6px 12px;
+  background: #28a745;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+#add-type-btn:hover {
+  background: #218838;
+}
+
+#point-placement {
+  padding: 10px;
+  background: #e8f5e8;
+  border-radius: 4px;
+  margin-bottom: 15px;
+}
+
+#selected-type-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+#selected-type-name {
+  font-weight: bold;
+  color: #155724;
+}
+
+#stop-placement {
+  padding: 4px 8px;
+  background: #dc3545;
+  color: white;
+  border: none;
+  border-radius: 3px;
+  cursor: pointer;
+  font-size: 11px;
+}
+
+#stop-placement:hover {
+  background: #c82333;
+}
+
+.point-type-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px;
+  background: #f8f9fa;
+  border: 1px solid #dee2e6;
+  border-radius: 4px;
+  margin-bottom: 2px;
+}
+
+.type-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+}
+
+.point-count {
+  color: #6c757d;
+  font-size: 12px;
+  font-weight: normal;
+}
+
+.type-actions {
+  display: flex;
+  gap: 4px;
+}
+
+.delete-type-btn {
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  background: #f8d7da;
+  border: 1px solid #f5c6cb;
+  border-radius: 3px;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.delete-type-btn:hover {
+  background: #f1b0b7;
+}
+
+.points-nested-list {
+  margin-left: 20px;
+  margin-bottom: 10px;
+}
+
+.point-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 8px;
+  background: white;
+  border: 1px solid #e9ecef;
+  border-radius: 3px;
+  margin-bottom: 2px;
+  font-size: 12px;
+}
+
+.point-info {
+  flex: 1;
+  cursor: pointer;
+}
+
+.point-info:hover {
+  background: #f8f9fa;
+}
+
+.point-description {
+  color: #6c757d;
+  font-size: 11px;
+  font-style: italic;
+}
+
+.point-actions {
+  display: flex;
+  gap: 2px;
+}
+
+.edit-point-btn, .delete-point-btn {
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 1px solid #ddd;
+  border-radius: 2px;
+  cursor: pointer;
+  font-size: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.edit-point-btn {
+  background: #d1ecf1;
+}
+
+.edit-point-btn:hover {
+  background: #bee5eb;
+}
+
+.delete-point-btn {
+  background: #f8d7da;
+}
+
+.delete-point-btn:hover {
+  background: #f1b0b7;
+}
+
+.interest-point-marker {
+  z-index: 1002;
+}
+
 #segments-list {
   margin-top: 20px;
 }

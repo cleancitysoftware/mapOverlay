@@ -29,6 +29,24 @@ interface Polygon {
   leafletPolygon: L.Polygon;
 }
 
+interface InterestPointType {
+  id: string;
+  name: string;
+  color: string;
+  icon: string;
+  createdAt: Date;
+}
+
+interface InterestPoint {
+  id: string;
+  typeId: string;
+  name: string;
+  description: string;
+  position: L.LatLng;
+  createdAt: Date;
+  leafletMarker: L.Marker;
+}
+
 class PathBuilderApp {
   private map: L.Map;
   private segments: PathSegment[] = [];
@@ -45,6 +63,13 @@ class PathBuilderApp {
   private polygonMarkers: L.Marker[] = [];
   private savedPolygons: Polygon[] = [];
   private polygonCounter: number = 1;
+  
+  // Interest Points mode properties
+  private interestPointMode: boolean = false;
+  private selectedPointType: InterestPointType | null = null;
+  private pointTypes: InterestPointType[] = [];
+  private interestPoints: InterestPoint[] = [];
+  private animatingPoints: Set<string> = new Set();
 
   constructor() {
     this.initializeMap();
@@ -70,13 +95,16 @@ class PathBuilderApp {
     this.map.on('click', (e) => {
       // Route to appropriate handler based on current mode
       const pathModeRadio = document.querySelector('input[name="mode"][value="path"]') as HTMLInputElement;
-      const isPathMode = pathModeRadio?.checked;
+      const polygonModeRadio = document.querySelector('input[name="mode"][value="polygon"]') as HTMLInputElement;
+      const interestModeRadio = document.querySelector('input[name="mode"][value="interest"]') as HTMLInputElement;
       
-      if (isPathMode) {
+      if (pathModeRadio?.checked) {
         this.handlePathClick(e);
         this.resetSegmentHighlighting();
-      } else {
+      } else if (polygonModeRadio?.checked) {
         this.handlePolygonClick(e);
+      } else if (interestModeRadio?.checked) {
+        this.handleInterestPointClick(e);
       }
     });
   }
@@ -106,6 +134,18 @@ class PathBuilderApp {
     finishPolygonBtn?.addEventListener('click', () => this.finishCurrentPolygon());
     clearPolygonBtn?.addEventListener('click', () => this.clearPolygon());
 
+    // Interest Points controls
+    const addTypeBtn = document.getElementById('add-type-btn');
+    const pointTypeDropdown = document.getElementById('point-type-dropdown') as HTMLSelectElement;
+    const stopPlacementBtn = document.getElementById('stop-placement');
+
+    addTypeBtn?.addEventListener('click', () => this.addNewPointType());
+    pointTypeDropdown?.addEventListener('change', (e) => {
+      const selectedTypeId = (e.target as HTMLSelectElement).value;
+      this.selectPointType(selectedTypeId);
+    });
+    stopPlacementBtn?.addEventListener('click', () => this.stopPointPlacement());
+
     // Walkways toggle
     const showWalkwaysCheckbox = document.getElementById('show-walkways') as HTMLInputElement;
     showWalkwaysCheckbox?.addEventListener('change', (e) => {
@@ -115,6 +155,9 @@ class PathBuilderApp {
         this.hideWalkablePaths();
       }
     });
+
+    // Initialize with some default point types
+    this.initializeDefaultPointTypes();
   }
 
   private startNewPath(): void {
@@ -529,31 +572,38 @@ class PathBuilderApp {
   private switchMode(mode: string): void {
     const pathControls = document.getElementById('path-controls');
     const polygonControls = document.getElementById('polygon-controls');
+    const interestControls = document.getElementById('interest-controls');
+    
+    // Reset all modes
+    this.polygonMode = false;
+    this.interestPointMode = false;
+    this.isBuilding = false;
+    
+    // Hide all control sections
+    if (pathControls) pathControls.style.display = 'none';
+    if (polygonControls) polygonControls.style.display = 'none';
+    if (interestControls) interestControls.style.display = 'none';
     
     if (mode === 'polygon') {
       // Switch to polygon mode
       this.polygonMode = true;
-      this.isBuilding = false; // Stop any path building
-      
-      // Clear current path building
       this.clearPath();
-      
-      // Show/hide appropriate controls
-      if (pathControls) pathControls.style.display = 'none';
       if (polygonControls) polygonControls.style.display = 'block';
-      
       console.log('Switched to Polygon Mode');
-    } else {
-      // Switch to path mode
-      this.polygonMode = false;
       
-      // Clear current polygon building
+    } else if (mode === 'interest') {
+      // Switch to interest points mode
+      this.interestPointMode = true;
+      this.clearPath();
       this.clearPolygon();
+      if (interestControls) interestControls.style.display = 'block';
+      console.log('Switched to Interest Points Mode');
       
-      // Show/hide appropriate controls
+    } else {
+      // Switch to path mode (default)
+      this.clearPolygon();
+      this.stopPointPlacement();
       if (pathControls) pathControls.style.display = 'block';
-      if (polygonControls) polygonControls.style.display = 'none';
-      
       console.log('Switched to Path Mode');
     }
     
@@ -856,6 +906,313 @@ class PathBuilderApp {
       startPolygonBtn.disabled = this.polygonMode;
       finishPolygonBtn.disabled = !this.polygonMode || this.polygonPoints.length < 3;
       clearPolygonBtn.disabled = this.polygonPoints.length === 0 && !this.polygonMode;
+    }
+  }
+
+  // Interest Points Methods
+  private initializeDefaultPointTypes(): void {
+    const defaultTypes = [
+      { name: 'Bathrooms', color: '#2196f3', icon: '🚻' },
+      { name: 'Food & Drink', color: '#ff9800', icon: '🍽️' },
+      { name: 'Transportation', color: '#4caf50', icon: '🚌' },
+      { name: 'Shopping', color: '#e91e63', icon: '🛍️' },
+      { name: 'Emergency', color: '#f44336', icon: '🚨' }
+    ];
+
+    defaultTypes.forEach(type => {
+      const pointType: InterestPointType = {
+        id: `type-${Date.now()}-${Math.random()}`,
+        name: type.name,
+        color: type.color,
+        icon: type.icon,
+        createdAt: new Date()
+      };
+      this.pointTypes.push(pointType);
+    });
+
+    this.updatePointTypeDropdown();
+  }
+
+  private updatePointTypeDropdown(): void {
+    const dropdown = document.getElementById('point-type-dropdown') as HTMLSelectElement;
+    if (!dropdown) return;
+
+    // Clear existing options except first
+    dropdown.innerHTML = '<option value="">Select Point Type...</option>';
+
+    this.pointTypes.forEach(type => {
+      const option = document.createElement('option');
+      option.value = type.id;
+      option.textContent = `${type.icon} ${type.name}`;
+      dropdown.appendChild(option);
+    });
+  }
+
+  private addNewPointType(): void {
+    const name = prompt('Enter name for new point type:');
+    if (!name) return;
+
+    const icon = prompt('Enter emoji icon for this type:', '📍');
+    const colors = ['#2196f3', '#ff9800', '#4caf50', '#e91e63', '#f44336', '#9c27b0'];
+    const color = colors[Math.floor(Math.random() * colors.length)];
+
+    const pointType: InterestPointType = {
+      id: `type-${Date.now()}`,
+      name: name,
+      color: color,
+      icon: icon || '📍',
+      createdAt: new Date()
+    };
+
+    this.pointTypes.push(pointType);
+    this.updatePointTypeDropdown();
+    this.updateInterestPointsList();
+  }
+
+  private selectPointType(typeId: string): void {
+    if (!typeId) {
+      this.selectedPointType = null;
+      this.stopPointPlacement();
+      return;
+    }
+
+    const type = this.pointTypes.find(t => t.id === typeId);
+    if (!type) return;
+
+    this.selectedPointType = type;
+    
+    // Show placement controls
+    const placementDiv = document.getElementById('point-placement');
+    const selectedTypeSpan = document.getElementById('selected-type-name');
+    
+    if (placementDiv) placementDiv.style.display = 'block';
+    if (selectedTypeSpan) selectedTypeSpan.textContent = `Selected: ${type.icon} ${type.name}`;
+
+    // Highlight all points of this type with animation
+    this.highlightPointsByType(type);
+  }
+
+  private stopPointPlacement(): void {
+    this.selectedPointType = null;
+    
+    const placementDiv = document.getElementById('point-placement');
+    if (placementDiv) placementDiv.style.display = 'none';
+
+    // Stop all animations
+    this.stopAllAnimations();
+  }
+
+  private handleInterestPointClick(e: L.LeafletMouseEvent): void {
+    if (!this.selectedPointType) return;
+
+    console.log('Interest Points mode - Placing point at:', e.latlng);
+
+    // Create point name
+    const pointName = prompt(`Enter name for this ${this.selectedPointType.name}:`, `${this.selectedPointType.name} ${this.getPointsOfType(this.selectedPointType.id).length + 1}`);
+    if (!pointName) return;
+
+    // Create marker
+    const marker = L.marker(e.latlng, {
+      icon: L.divIcon({
+        className: 'interest-point-marker',
+        html: `<div style="background: ${this.selectedPointType.color}; color: white; width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 14px; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.2);">${this.selectedPointType.icon}</div>`,
+        iconSize: [28, 28],
+        iconAnchor: [14, 14]
+      })
+    }).addTo(this.map);
+
+    // Create interest point object
+    const interestPoint: InterestPoint = {
+      id: `point-${Date.now()}`,
+      typeId: this.selectedPointType.id,
+      name: pointName,
+      description: '',
+      position: e.latlng,
+      createdAt: new Date(),
+      leafletMarker: marker
+    };
+
+    // Add click listener for editing
+    marker.on('click', (e) => {
+      e.originalEvent?.stopPropagation();
+      this.editInterestPoint(interestPoint);
+    });
+
+    this.interestPoints.push(interestPoint);
+    this.updateInterestPointsList();
+  }
+
+  private editInterestPoint(point: InterestPoint): void {
+    const newName = prompt('Edit point name:', point.name);
+    const newDescription = prompt('Edit description:', point.description);
+
+    if (newName !== null) point.name = newName || point.name;
+    if (newDescription !== null) point.description = newDescription;
+
+    this.updateInterestPointsList();
+  }
+
+  private highlightPointsByType(type: InterestPointType): void {
+    console.log(`=== Highlighting type ${type.name} ===`);
+    this.stopAllAnimations();
+
+    const pointsOfType = this.getPointsOfType(type.id);
+    console.log(`Found ${pointsOfType.length} points of type ${type.name}`);
+    console.log('Points:', pointsOfType.map(p => ({name: p.name, hasMarker: !!p.leafletMarker, onMap: this.map.hasLayer(p.leafletMarker)})));
+    
+    pointsOfType.forEach((point, index) => {
+      console.log(`Processing point ${index + 1}: ${point.name}`);
+      
+      // Ensure marker is visible on map
+      if (!this.map.hasLayer(point.leafletMarker)) {
+        console.log(`Adding marker for ${point.name} to map`);
+        point.leafletMarker.addTo(this.map);
+      } else {
+        console.log(`Marker for ${point.name} already on map`);
+      }
+      
+      const markerElement = point.leafletMarker.getElement();
+      if (markerElement) {
+        // Apply animation to the inner div instead of the wrapper
+        const innerDiv = markerElement.querySelector('div');
+        if (innerDiv) {
+          innerDiv.style.animation = 'pulse 0.8s ease-in-out infinite';
+          this.animatingPoints.add(point.id);
+          console.log(`Added pulsing animation to ${point.name}`);
+        } else {
+          console.log(`ERROR: No inner div found for ${point.name}`);
+        }
+      } else {
+        console.log(`ERROR: No marker element found for ${point.name}`);
+      }
+    });
+
+    console.log(`=== End highlighting type ${type.name} ===`);
+  }
+
+  private stopAllAnimations(): void {
+    console.log('Stopping all animations...');
+    this.animatingPoints.forEach(pointId => {
+      const point = this.interestPoints.find(p => p.id === pointId);
+      if (point) {
+        const markerElement = point.leafletMarker.getElement();
+        if (markerElement) {
+          const innerDiv = markerElement.querySelector('div');
+          if (innerDiv) {
+            innerDiv.style.animation = '';
+            console.log(`Removed pulsing from ${point.name}`);
+          }
+        }
+      }
+    });
+    this.animatingPoints.clear();
+  }
+
+  private getPointsOfType(typeId: string): InterestPoint[] {
+    return this.interestPoints.filter(p => p.typeId === typeId);
+  }
+
+  private updateInterestPointsList(): void {
+    const listDiv = document.getElementById('interest-points-list');
+    if (!listDiv) return;
+
+    listDiv.innerHTML = '';
+
+    // Group points by type
+    this.pointTypes.forEach(type => {
+      const pointsOfType = this.getPointsOfType(type.id);
+      
+      // Create type header
+      const typeHeader = document.createElement('div');
+      typeHeader.className = 'point-type-header';
+      typeHeader.innerHTML = `
+        <div class="type-info" style="cursor: pointer;">
+          <span style="color: ${type.color};">${type.icon}</span>
+          <strong>${type.name}</strong>
+          <span class="point-count">(${pointsOfType.length})</span>
+        </div>
+        <div class="type-actions">
+          <button class="delete-type-btn" data-type-id="${type.id}">🗑️</button>
+        </div>
+      `;
+
+      // Add click to highlight all of this type
+      const typeInfo = typeHeader.querySelector('.type-info');
+      typeInfo?.addEventListener('click', () => this.highlightPointsByType(type));
+
+      const deleteBtn = typeHeader.querySelector('.delete-type-btn');
+      deleteBtn?.addEventListener('click', () => this.deletePointType(type));
+
+      listDiv.appendChild(typeHeader);
+
+      // Create nested point list
+      if (pointsOfType.length > 0) {
+        const pointsList = document.createElement('div');
+        pointsList.className = 'points-nested-list';
+        
+        pointsOfType.forEach(point => {
+          const pointDiv = document.createElement('div');
+          pointDiv.className = 'point-item';
+          pointDiv.innerHTML = `
+            <div class="point-info">
+              <strong>${point.name}</strong>
+              <div class="point-description">${point.description || 'No description'}</div>
+            </div>
+            <div class="point-actions">
+              <button class="edit-point-btn" data-point-id="${point.id}">✏️</button>
+              <button class="delete-point-btn" data-point-id="${point.id}">🗑️</button>
+            </div>
+          `;
+
+          const editBtn = pointDiv.querySelector('.edit-point-btn');
+          const deleteBtn = pointDiv.querySelector('.delete-point-btn');
+
+          editBtn?.addEventListener('click', () => this.editInterestPoint(point));
+          deleteBtn?.addEventListener('click', () => this.deleteInterestPoint(point));
+          
+          // Click to zoom to point
+          const pointInfo = pointDiv.querySelector('.point-info');
+          pointInfo?.addEventListener('click', () => {
+            this.map.setView(point.position, 18);
+            const markerElement = point.leafletMarker.getElement();
+            if (markerElement) {
+              const innerDiv = markerElement.querySelector('div');
+              if (innerDiv) {
+                innerDiv.style.animation = 'pulse 0.8s ease-in-out infinite';
+                setTimeout(() => innerDiv.style.animation = '', 2000);
+              }
+            }
+          });
+
+          pointsList.appendChild(pointDiv);
+        });
+
+        listDiv.appendChild(pointsList);
+      }
+    });
+  }
+
+  private deletePointType(type: InterestPointType): void {
+    const pointsOfType = this.getPointsOfType(type.id);
+    if (pointsOfType.length > 0) {
+      if (!confirm(`Delete "${type.name}" and all ${pointsOfType.length} points of this type?`)) {
+        return;
+      }
+      // Remove all points of this type
+      pointsOfType.forEach(point => this.deleteInterestPoint(point));
+    }
+
+    // Remove type
+    this.pointTypes = this.pointTypes.filter(t => t.id !== type.id);
+    this.updatePointTypeDropdown();
+    this.updateInterestPointsList();
+  }
+
+  private deleteInterestPoint(point: InterestPoint): void {
+    if (confirm(`Delete "${point.name}"?`)) {
+      this.map.removeLayer(point.leafletMarker);
+      this.interestPoints = this.interestPoints.filter(p => p.id !== point.id);
+      this.updateInterestPointsList();
     }
   }
 }

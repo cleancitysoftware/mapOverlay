@@ -25,6 +25,9 @@
           <label>
             <input type="radio" name="mode" value="polygon"> Polygon Mode
           </label>
+          <label>
+            <input type="radio" name="mode" value="interest"> Interest Points
+          </label>
         </div>
         
         <!-- Path Controls -->
@@ -68,6 +71,37 @@
           <div id="polygons-section">
             <h4>Saved Polygons</h4>
             <ul id="polygons-list"></ul>
+          </div>
+        </div>
+        
+        <!-- Interest Points Controls -->
+        <div id="interest-controls" style="display: none;">
+          <h3>Interest Points</h3>
+          
+          <!-- Point Type Management -->
+          <div id="point-type-controls">
+            <h4>Point Types</h4>
+            <div id="type-selection">
+              <select id="point-type-dropdown">
+                <option value="">Select Point Type...</option>
+              </select>
+              <button id="add-type-btn">+ Add Type</button>
+            </div>
+          </div>
+          
+          <!-- Current Point Placement -->
+          <div id="point-placement" style="display: none;">
+            <h4>Place Points</h4>
+            <div id="selected-type-info">
+              <span id="selected-type-name">Selected: None</span>
+              <button id="stop-placement">Stop Placing</button>
+            </div>
+          </div>
+
+          <!-- Interest Points List -->
+          <div id="interest-points-section">
+            <h4>Interest Points</h4>
+            <div id="interest-points-list"></div>
           </div>
         </div>
 
