@@ -15,30 +15,65 @@
         <div id="map"></div>
       </div>
       <div id="sidebar">
-        <h2>Path Builder</h2>
+        <h2>Map Builder</h2>
         
-        <!-- Current Path Controls -->
-        <div id="current-path-controls">
-          <button id="start-path">Start New Path</button>
-          <button id="finish-path" disabled>Finish Path</button>
-          <button id="clear-path">Clear Path</button>
+        <!-- Mode Selection -->
+        <div id="mode-controls">
+          <label>
+            <input type="radio" name="mode" value="path" checked> Path Mode
+          </label>
+          <label>
+            <input type="radio" name="mode" value="polygon"> Polygon Mode
+          </label>
+        </div>
+        
+        <!-- Path Controls -->
+        <div id="path-controls">
+          <h3>Path Building</h3>
+          <div id="current-path-controls">
+            <button id="start-path">Start New Path</button>
+            <button id="finish-path" disabled>Finish Path</button>
+            <button id="clear-path">Clear Path</button>
+          </div>
+          
+          <!-- Current Path Segments -->
+          <div id="segments-list">
+            <h4>Current Path Segments</h4>
+            <ul id="segments"></ul>
+          </div>
+
+          <!-- Saved Pathways -->
+          <div id="pathways-section">
+            <h4>Saved Pathways</h4>
+            <ul id="pathways-list"></ul>
+          </div>
+        </div>
+        
+        <!-- Polygon Controls -->
+        <div id="polygon-controls" style="display: none;">
+          <h3>Polygon Building</h3>
+          <div id="current-polygon-controls">
+            <button id="start-polygon">Start New Polygon</button>
+            <button id="finish-polygon" disabled>Finish Polygon</button>
+            <button id="clear-polygon">Clear Polygon</button>
+          </div>
+          
+          <!-- Current Polygon Points -->
+          <div id="polygon-points-list">
+            <h4>Current Polygon Points</h4>
+            <div id="polygon-point-count">0 points</div>
+          </div>
+
+          <!-- Saved Polygons -->
+          <div id="polygons-section">
+            <h4>Saved Polygons</h4>
+            <ul id="polygons-list"></ul>
+          </div>
         </div>
 
         <label>
           <input type="checkbox" id="show-walkways" checked> Show All Walkable Paths
         </label>
-
-        <!-- Current Path Segments -->
-        <div id="segments-list">
-          <h3>Current Path Segments</h3>
-          <ul id="segments"></ul>
-        </div>
-
-        <!-- Saved Pathways -->
-        <div id="pathways-section">
-          <h3>Saved Pathways</h3>
-          <ul id="pathways-list"></ul>
-        </div>
       </div>
     </div>
     <script type="module" src="/main-routing.ts"></script>
