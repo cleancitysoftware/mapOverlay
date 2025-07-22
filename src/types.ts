@@ -23,6 +23,15 @@ export const PathSegment = Schema.Struct({
   editable: Schema.Boolean
 });
 
+export const CompletePath = Schema.Struct({
+  id: Schema.String,
+  name: Schema.String,
+  segments: Schema.Array(PathSegment),
+  createdAt: Schema.Date,
+  color: Schema.String,
+  visible: Schema.Boolean
+});
+
 export const PathState = Schema.Struct({
   segments: Schema.Array(PathSegment),
   currentWaypoint: Schema.optional(Node),
@@ -33,6 +42,7 @@ export type Node = Schema.Schema.Type<typeof Node>;
 export type Edge = Schema.Schema.Type<typeof Edge>;
 export type PathSegment = Schema.Schema.Type<typeof PathSegment>;
 export type PathState = Schema.Schema.Type<typeof PathState>;
+export type CompletePath = Schema.Schema.Type<typeof CompletePath>;
 
 export const MapGraph = Schema.Struct({
   nodes: Schema.Array(Node),

@@ -10,6 +10,15 @@ interface PathSegment {
   isHighlighted: boolean;
 }
 
+interface CompletePath {
+  id: string;
+  name: string;
+  segments: PathSegment[];
+  createdAt: Date;
+  color: string;
+  visible: boolean;
+}
+
 class PathBuilderApp {
   private map: L.Map;
   private segments: PathSegment[] = [];
@@ -17,6 +26,8 @@ class PathBuilderApp {
   private currentWaypoints: L.LatLng[] = [];
   private tempMarkers: L.Marker[] = [];
   private walkwaysLayer: L.LayerGroup | null = null;
+  private savedPaths: CompletePath[] = [];
+  private pathCounter: number = 1;
 
   constructor() {
     this.initializeMap();
@@ -47,10 +58,12 @@ class PathBuilderApp {
 
   private setupEventListeners(): void {
     const startPathBtn = document.getElementById('start-path');
+    const finishPathBtn = document.getElementById('finish-path');
     const clearPathBtn = document.getElementById('clear-path');
     const showWalkwaysCheckbox = document.getElementById('show-walkways') as HTMLInputElement;
 
     startPathBtn?.addEventListener('click', () => this.startNewPath());
+    finishPathBtn?.addEventListener('click', () => this.finishCurrentPath());
     clearPathBtn?.addEventListener('click', () => this.clearPath());
     showWalkwaysCheckbox?.addEventListener('change', (e) => {
       if ((e.target as HTMLInputElement).checked) {
@@ -162,6 +175,7 @@ class PathBuilderApp {
     this.tempMarkers.push(lastMarker);
 
     this.updateSegmentsList();
+    this.updateUI(); // Enable finish button now that we have segments
   }
 
   private updateSegmentsList(): void {
@@ -305,12 +319,155 @@ class PathBuilderApp {
     }
   }
 
+  private finishCurrentPath(): void {
+    if (this.segments.length === 0) return;
+    
+    // Prompt for path name
+    const pathName = prompt('Enter name for this path:', `Path ${this.pathCounter}`) || `Path ${this.pathCounter}`;
+    
+    // Generate random color for this path
+    const colors = ['#2196f3', '#4caf50', '#ff9800', '#9c27b0', '#f44336', '#795548'];
+    const color = colors[Math.floor(Math.random() * colors.length)];
+    
+    // Create complete path
+    const completePath: CompletePath = {
+      id: `path-${Date.now()}`,
+      name: pathName,
+      segments: [...this.segments], // Copy segments
+      createdAt: new Date(),
+      color: color,
+      visible: true
+    };
+    
+    // Update segment colors to match path color
+    completePath.segments.forEach(segment => {
+      segment.editable = false;
+      this.map.removeControl(segment.routingControl);
+      
+      const coloredControl = L.Routing.control({
+        waypoints: segment.waypoints.map(wp => L.Routing.waypoint(wp)),
+        routeWhileDragging: false,
+        addWaypoints: false,
+        createMarker: () => null,
+        lineOptions: {
+          styles: [{ color: color, weight: 4, opacity: 0.8 }]
+        },
+        show: false,
+        router: L.Routing.osrmv1({
+          serviceUrl: 'https://routing.openstreetmap.de/routed-foot/route/v1',
+          profile: 'foot-walking',
+          optimize: false
+        })
+      }).addTo(this.map);
+      
+      segment.routingControl = coloredControl;
+    });
+    
+    this.savedPaths.push(completePath);
+    this.pathCounter++;
+    
+    // Reset current path building
+    this.segments = [];
+    this.isBuilding = false;
+    this.currentWaypoints = [];
+    this.clearTempMarkers();
+    
+    // Update UI
+    this.updateSegmentsList();
+    this.updatePathwaysList();
+    this.updateUI();
+    
+    console.log('Path finished and saved:', pathName);
+  }
+
+  private updatePathwaysList(): void {
+    const pathwaysList = document.getElementById('pathways-list');
+    if (!pathwaysList) return;
+
+    pathwaysList.innerHTML = '';
+
+    this.savedPaths.forEach(path => {
+      const li = document.createElement('li');
+      li.className = 'pathway-item';
+      li.innerHTML = `
+        <div class="pathway-info">
+          <span class="pathway-color" style="background-color: ${path.color}"></span>
+          <span class="pathway-name">${path.name}</span>
+          <span class="pathway-segments">(${path.segments.length} segments)</span>
+        </div>
+        <div class="pathway-actions">
+          <button class="highlight-btn" data-path-id="${path.id}">👁️</button>
+          <button class="edit-btn" data-path-id="${path.id}">✏️</button>
+          <button class="delete-btn" data-path-id="${path.id}">🗑️</button>
+        </div>
+      `;
+
+      // Add event listeners for pathway actions
+      const highlightBtn = li.querySelector('.highlight-btn');
+      const editBtn = li.querySelector('.edit-btn');
+      const deleteBtn = li.querySelector('.delete-btn');
+
+      highlightBtn?.addEventListener('click', () => this.highlightPath(path));
+      editBtn?.addEventListener('click', () => this.editPathName(path));
+      deleteBtn?.addEventListener('click', () => this.deletePath(path));
+
+      pathwaysList.appendChild(li);
+    });
+  }
+
+  private highlightPath(path: CompletePath): void {
+    // Clear any existing highlights
+    this.resetSegmentHighlighting();
+    
+    // Highlight all segments in this path
+    path.segments.forEach(segment => {
+      const bounds = L.latLngBounds(segment.waypoints);
+      const highlightOverlay = L.polyline(segment.waypoints, {
+        color: '#ffeb3b',
+        weight: 8,
+        opacity: 0.8
+      }).addTo(this.map);
+      
+      (segment as any).highlightOverlay = highlightOverlay;
+    });
+    
+    // Zoom to show entire path
+    if (path.segments.length > 0) {
+      const allWaypoints = path.segments.flatMap(s => s.waypoints);
+      const bounds = L.latLngBounds(allWaypoints);
+      this.map.fitBounds(bounds, { padding: [20, 20] });
+    }
+  }
+
+  private editPathName(path: CompletePath): void {
+    const newName = prompt('Enter new name for this path:', path.name);
+    if (newName && newName !== path.name) {
+      path.name = newName;
+      this.updatePathwaysList();
+    }
+  }
+
+  private deletePath(path: CompletePath): void {
+    if (confirm(`Are you sure you want to delete "${path.name}"?`)) {
+      // Remove path segments from map
+      path.segments.forEach(segment => {
+        this.map.removeControl(segment.routingControl);
+      });
+      
+      // Remove from saved paths
+      this.savedPaths = this.savedPaths.filter(p => p.id !== path.id);
+      this.updatePathwaysList();
+    }
+  }
+
   private updateUI(): void {
     const startBtn = document.getElementById('start-path') as HTMLButtonElement;
+    const finishBtn = document.getElementById('finish-path') as HTMLButtonElement;
     const clearBtn = document.getElementById('clear-path') as HTMLButtonElement;
 
-    if (startBtn && clearBtn) {
+    if (startBtn && finishBtn && clearBtn) {
       startBtn.disabled = this.isBuilding;
+      finishBtn.disabled = !this.isBuilding || this.segments.length === 0;
       clearBtn.disabled = this.segments.length === 0 && !this.isBuilding;
     }
   }

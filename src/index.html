@@ -16,14 +16,28 @@
       </div>
       <div id="sidebar">
         <h2>Path Builder</h2>
-        <button id="start-path">Start New Path</button>
-        <button id="clear-path">Clear Path</button>
+        
+        <!-- Current Path Controls -->
+        <div id="current-path-controls">
+          <button id="start-path">Start New Path</button>
+          <button id="finish-path" disabled>Finish Path</button>
+          <button id="clear-path">Clear Path</button>
+        </div>
+
         <label>
           <input type="checkbox" id="show-walkways" checked> Show All Walkable Paths
         </label>
+
+        <!-- Current Path Segments -->
         <div id="segments-list">
-          <h3>Path Segments</h3>
+          <h3>Current Path Segments</h3>
           <ul id="segments"></ul>
+        </div>
+
+        <!-- Saved Pathways -->
+        <div id="pathways-section">
+          <h3>Saved Pathways</h3>
+          <ul id="pathways-list"></ul>
         </div>
       </div>
     </div>
