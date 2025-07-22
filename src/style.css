@@ -1,0 +1,128 @@
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: system-ui, -apple-system, sans-serif;
+  height: 100vh;
+  overflow: hidden;
+}
+
+#app {
+  display: flex;
+  height: 100vh;
+}
+
+#map-container {
+  flex: 1;
+  position: relative;
+}
+
+#map {
+  width: 100%;
+  height: 100%;
+}
+
+#sidebar {
+  width: 300px;
+  background: #f5f5f5;
+  border-left: 1px solid #ddd;
+  padding: 20px;
+  overflow-y: auto;
+}
+
+#sidebar h2 {
+  margin-bottom: 20px;
+  color: #333;
+}
+
+#sidebar button {
+  width: 100%;
+  padding: 12px;
+  margin-bottom: 10px;
+  background: #007bff;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+#sidebar button:hover {
+  background: #0056b3;
+}
+
+#sidebar button:disabled {
+  background: #ccc;
+  cursor: not-allowed;
+}
+
+#sidebar label {
+  display: flex;
+  align-items: center;
+  margin: 15px 0;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+#sidebar input[type="checkbox"] {
+  margin-right: 8px;
+}
+
+#segments-list {
+  margin-top: 20px;
+}
+
+#segments-list h3 {
+  margin-bottom: 15px;
+  color: #333;
+}
+
+#segments {
+  list-style: none;
+}
+
+#segments li {
+  padding: 10px;
+  margin-bottom: 8px;
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+#segments li:hover {
+  background: #e9ecef;
+}
+
+#segments li.active {
+  background: #007bff;
+  color: white;
+  border-color: #0056b3;
+}
+
+#segments li.current {
+  border-left: 4px solid #28a745;
+}
+
+.waypoint-marker {
+  z-index: 1000;
+}
+
+.leaflet-routing-container {
+  display: none;
+}
+
+.highlighted .leaflet-routing-line {
+  stroke: #ff6b35 !important;
+  stroke-width: 6 !important;
+  stroke-opacity: 1.0 !important;
+}
+
+.faded .leaflet-routing-line {
+  stroke-opacity: 0.3 !important;
+  stroke-width: 2 !important;
+}

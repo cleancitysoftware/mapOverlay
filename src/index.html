@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Seattle Path Builder</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.css" />
+    <link rel="stylesheet" href="./style.css" />
+  </head>
+  <body>
+    <div id="app">
+      <div id="map-container">
+        <div id="map"></div>
+      </div>
+      <div id="sidebar">
+        <h2>Path Builder</h2>
+        <button id="start-path">Start New Path</button>
+        <button id="clear-path">Clear Path</button>
+        <label>
+          <input type="checkbox" id="show-walkways" checked> Show All Walkable Paths
+        </label>
+        <div id="segments-list">
+          <h3>Path Segments</h3>
+          <ul id="segments"></ul>
+        </div>
+      </div>
+    </div>
+    <script type="module" src="/main-routing.ts"></script>
+  </body>
+</html>
