@@ -265,7 +265,7 @@ class PathBuilderApp {
         iconSize: [14, 14],
         iconAnchor: [7, 7]
       })
-    }).addTo(this.map);
+    } as any).addTo(this.map);
 
     this.polygonMarkers.push(marker);
     this.polygonPoints.push(e.latlng);
@@ -287,7 +287,7 @@ class PathBuilderApp {
       waypoints: segmentWaypoints.map(wp => L.Routing.waypoint(wp)),
       routeWhileDragging: true,
       addWaypoints: false,
-      // createMarker: () => null, // We handle markers ourselves - removed due to strict types
+      createMarker: () => null as any, // Disable default waypoint markers for clean UI
       lineOptions: {
         styles: [{ color: '#28a745', weight: 4, opacity: 0.8 }],
         extendToWaypoints: true,
@@ -300,7 +300,7 @@ class PathBuilderApp {
         profile: 'foot-walking' // Proper walking profile on walking server
         // Note: optimize option removed as it's not part of the official API
       })
-    }).addTo(this.map);
+    } as any).addTo(this.map);
 
     const segment: PathSegment = {
       id: `segment-${this.segments.length + 1}`,
@@ -488,7 +488,7 @@ class PathBuilderApp {
         waypoints: segment.waypoints.map(wp => L.Routing.waypoint(wp)),
         routeWhileDragging: false,
         addWaypoints: false,
-        // createMarker: () => null, // Removed due to strict types
+        createMarker: () => null as any, // Disable default waypoint markers
         lineOptions: {
           styles: [{ color: color, weight: 4, opacity: 0.8 }],
           extendToWaypoints: true,
@@ -500,7 +500,7 @@ class PathBuilderApp {
           serviceUrl: 'https://routing.openstreetmap.de/routed-foot/route/v1',
           profile: 'foot-walking'
         })
-      }).addTo(this.map);
+      } as any).addTo(this.map);
       
       segment.routingControl = coloredControl;
     });
@@ -1051,7 +1051,7 @@ class PathBuilderApp {
         iconSize: [28, 28],
         iconAnchor: [14, 14]
       })
-    }).addTo(this.map);
+    } as any).addTo(this.map);
 
     // Create interest point object
     const interestPoint: InterestPoint = {
@@ -1685,7 +1685,7 @@ class PathBuilderApp {
           waypoints: segment.waypoints.map(wp => L.Routing.waypoint(wp)),
           routeWhileDragging: false,
           addWaypoints: false,
-          // createMarker: () => null, // Removed due to strict types
+          createMarker: () => null as any, // Disable default waypoint markers
           lineOptions: {
             styles: [{ color: path.color, weight: 4, opacity: 0.8 }],
             extendToWaypoints: true,
@@ -1697,7 +1697,7 @@ class PathBuilderApp {
             serviceUrl: 'https://routing.openstreetmap.de/routed-foot/route/v1',
             profile: 'foot-walking'
           })
-        }).addTo(this.map);
+        } as any).addTo(this.map);
         
         segment.routingControl = routingControl;
       });
@@ -1729,7 +1729,7 @@ class PathBuilderApp {
         iconSize: [28, 28],
         iconAnchor: [14, 14]
       })
-    }).addTo(this.map);
+    } as any).addTo(this.map);
 
     return marker;
   }
