@@ -47,6 +47,19 @@ interface InterestPoint {
   leafletMarker: L.Marker;
 }
 
+interface Session {
+  id: string;
+  name: string;
+  createdAt: Date;
+  lastModified: Date;
+  paths: CompletePath[];
+  polygons: Polygon[];
+  interestPointTypes: InterestPointType[];
+  interestPoints: Omit<InterestPoint, 'leafletMarker'>[];
+  mapCenter: L.LatLng;
+  mapZoom: number;
+}
+
 class PathBuilderApp {
   private map: L.Map;
   private segments: PathSegment[] = [];
@@ -77,6 +90,11 @@ class PathBuilderApp {
   private animationSpeed: number = 5; // 1-10 scale
   private animationRunning: boolean = false;
   private animationRequestId: number | null = null;
+
+  // Session Management properties
+  private currentSession: Session | null = null;
+  private allSessions: Session[] = [];
+  private sessionCounter: number = 1;
 
   constructor() {
     this.initializeMap();
@@ -164,6 +182,17 @@ class PathBuilderApp {
       this.animationSpeed = parseInt((e.target as HTMLInputElement).value);
     });
 
+    // Session controls
+    const newSessionBtn = document.getElementById('new-session-btn');
+    const switchSessionBtn = document.getElementById('switch-session-btn');
+    const saveSessionBtn = document.getElementById('save-session-btn');
+    const deleteSessionBtn = document.getElementById('delete-session-btn');
+
+    newSessionBtn?.addEventListener('click', () => this.createNewSession());
+    switchSessionBtn?.addEventListener('click', () => this.showSessionSwitcher());
+    saveSessionBtn?.addEventListener('click', () => this.saveCurrentSession());
+    deleteSessionBtn?.addEventListener('click', () => this.deleteCurrentSession());
+
     // Walkways toggle
     const showWalkwaysCheckbox = document.getElementById('show-walkways') as HTMLInputElement;
     showWalkwaysCheckbox?.addEventListener('change', (e) => {
@@ -179,6 +208,9 @@ class PathBuilderApp {
     
     // Initialize animation controls
     this.updateAnimationControls();
+    
+    // Initialize session management
+    this.initializeSessions();
   }
 
   private startNewPath(): void {
@@ -1422,6 +1454,468 @@ class PathBuilderApp {
     };
 
     animate();
+  }
+
+  // Session Management Methods
+  private initializeSessions(): void {
+    // Load sessions from localStorage
+    this.loadSessionsFromStorage();
+    
+    // If no sessions exist, create default session
+    if (this.allSessions.length === 0) {
+      this.createDefaultSession();
+    } else {
+      // Load the most recent session
+      const lastSession = this.allSessions.reduce((latest, session) => 
+        session.lastModified > latest.lastModified ? session : latest
+      );
+      this.loadSession(lastSession);
+    }
+  }
+
+  private createDefaultSession(): void {
+    const defaultSession: Session = {
+      id: `session-${Date.now()}`,
+      name: 'Default Session',
+      createdAt: new Date(),
+      lastModified: new Date(),
+      paths: [],
+      polygons: [],
+      interestPointTypes: [...this.pointTypes],
+      interestPoints: [],
+      mapCenter: this.map.getCenter(),
+      mapZoom: this.map.getZoom()
+    };
+    
+    this.currentSession = defaultSession;
+    this.allSessions.push(defaultSession);
+    this.updateSessionUI();
+    this.saveSessionsToStorage();
+    console.log('Created default session');
+  }
+
+  private createNewSession(): void {
+    const name = prompt('Enter name for new session:', `Session ${this.sessionCounter}`);
+    if (!name) return;
+
+    // Save current session first
+    this.saveCurrentSession();
+
+    // Create new session
+    const newSession: Session = {
+      id: `session-${Date.now()}`,
+      name: name,
+      createdAt: new Date(),
+      lastModified: new Date(),
+      paths: [],
+      polygons: [],
+      interestPointTypes: [...this.pointTypes], // Copy default types
+      interestPoints: [],
+      mapCenter: this.map.getCenter(),
+      mapZoom: this.map.getZoom()
+    };
+
+    this.sessionCounter++;
+    this.currentSession = newSession;
+    this.allSessions.push(newSession);
+    
+    // Clear current map data
+    this.clearAllMapData();
+    
+    this.updateSessionUI();
+    this.saveSessionsToStorage();
+    console.log(`Created new session: ${name}`);
+    this.showSessionMessage(`New session "${name}" created!`, 'success');
+  }
+
+  private showSessionSwitcher(): void {
+    if (this.allSessions.length === 0) return;
+
+    const options = this.allSessions.map((session, index) => 
+      `${index + 1}. ${session.name} (${session.paths.length} paths, ${session.polygons.length} polygons, ${session.interestPoints.length} points)`
+    ).join('\n');
+
+    const choice = prompt(`Choose session to switch to:\n\n${options}\n\nEnter session number (1-${this.allSessions.length}):`);
+    if (!choice) return;
+
+    const sessionIndex = parseInt(choice) - 1;
+    if (sessionIndex >= 0 && sessionIndex < this.allSessions.length) {
+      const targetSession = this.allSessions[sessionIndex];
+      this.switchToSession(targetSession);
+    } else {
+      alert('Invalid session number');
+    }
+  }
+
+  private switchToSession(session: Session): void {
+    if (session === this.currentSession) return;
+
+    // Save current session
+    this.saveCurrentSession();
+
+    // Load target session
+    this.loadSession(session);
+    console.log(`Switched to session: ${session.name}`);
+    this.showSessionMessage(`Switched to session "${session.name}"`, 'info');
+  }
+
+  private loadSession(session: Session): void {
+    // Clear current map data
+    this.clearAllMapData();
+
+    // Set current session
+    this.currentSession = session;
+    
+    // Load session data
+    this.savedPaths = [...session.paths];
+    this.savedPolygons = [...session.polygons];
+    this.pointTypes = [...session.interestPointTypes];
+    
+    // Recreate interest points with markers
+    this.interestPoints = session.interestPoints.map(point => {
+      const marker = this.createInterestPointMarker(point);
+      return {
+        ...point,
+        position: L.latLng(point.position.lat, point.position.lng),
+        leafletMarker: marker
+      };
+    });
+
+    // Restore map state
+    this.map.setView(session.mapCenter, session.mapZoom);
+    
+    // Update UI
+    this.recreateMapElements();
+    this.updateSessionUI();
+    this.updateAllLists();
+  }
+
+  private saveCurrentSession(): void {
+    if (!this.currentSession) return;
+
+    // Update session data
+    this.currentSession.paths = [...this.savedPaths];
+    this.currentSession.polygons = [...this.savedPolygons];
+    this.currentSession.interestPointTypes = [...this.pointTypes];
+    this.currentSession.interestPoints = this.interestPoints.map(point => ({
+      id: point.id,
+      typeId: point.typeId,
+      name: point.name,
+      description: point.description,
+      position: point.position,
+      createdAt: point.createdAt
+    }));
+    this.currentSession.mapCenter = this.map.getCenter();
+    this.currentSession.mapZoom = this.map.getZoom();
+    this.currentSession.lastModified = new Date();
+
+    this.saveSessionsToStorage();
+    console.log(`Saved session: ${this.currentSession.name}`);
+    
+    // Show user feedback
+    this.showSessionMessage(`Session "${this.currentSession.name}" saved successfully!`, 'success');
+  }
+
+  private deleteCurrentSession(): void {
+    if (!this.currentSession) return;
+
+    // Don't allow deleting the last session
+    if (this.allSessions.length === 1) {
+      alert('Cannot delete the last session. Create another session first.');
+      return;
+    }
+
+    const sessionName = this.currentSession.name;
+    const confirmation = confirm(`Are you sure you want to delete session "${sessionName}"?\n\nThis will permanently remove all paths, polygons, and interest points in this session.`);
+    
+    if (!confirmation) return;
+
+    // Find index of current session
+    const sessionIndex = this.allSessions.findIndex(s => s.id === this.currentSession!.id);
+    if (sessionIndex === -1) return;
+
+    // Remove session from array
+    this.allSessions.splice(sessionIndex, 1);
+
+    // Switch to another session (prefer the next one, or the first one)
+    const nextSession = this.allSessions[sessionIndex] || this.allSessions[0];
+    this.loadSession(nextSession);
+
+    // Save updated sessions
+    this.saveSessionsToStorage();
+    
+    console.log(`Deleted session: ${sessionName}`);
+    this.showSessionMessage(`Session "${sessionName}" has been deleted.`, 'warning');
+  }
+
+  private clearAllMapData(): void {
+    // Stop any running animation
+    this.stopPathAnimation();
+    
+    // Clear paths
+    this.savedPaths.forEach(path => {
+      path.segments.forEach(segment => {
+        this.map.removeControl(segment.routingControl);
+      });
+    });
+    this.savedPaths = [];
+
+    // Clear segments
+    this.segments.forEach(segment => {
+      this.map.removeControl(segment.routingControl);
+    });
+    this.segments = [];
+
+    // Clear polygons
+    this.savedPolygons.forEach(polygon => {
+      this.map.removeLayer(polygon.leafletPolygon);
+    });
+    this.savedPolygons = [];
+
+    // Clear polygon points
+    this.polygonMarkers.forEach(marker => this.map.removeLayer(marker));
+    this.polygonMarkers = [];
+
+    // Clear interest points
+    this.interestPoints.forEach(point => {
+      this.map.removeLayer(point.leafletMarker);
+    });
+    this.interestPoints = [];
+    
+    // Clear temp markers
+    this.clearTempMarkers();
+    
+    // Reset state
+    this.isBuilding = false;
+    this.polygonMode = false;
+    this.selectedPath = null;
+    this.currentWaypoints = [];
+    this.polygonPoints = [];
+  }
+
+  private recreateMapElements(): void {
+    // Recreate path controls
+    this.savedPaths.forEach(path => {
+      path.segments.forEach(segment => {
+        // Recreate routing control for each segment
+        const routingControl = L.Routing.control({
+          waypoints: segment.waypoints.map(wp => L.Routing.waypoint(wp)),
+          routeWhileDragging: false,
+          addWaypoints: false,
+          createMarker: () => null,
+          lineOptions: {
+            styles: [{ color: path.color, weight: 4, opacity: 0.8 }]
+          },
+          show: false,
+          fitSelectedRoutes: false,
+          router: L.Routing.osrmv1({
+            serviceUrl: 'https://routing.openstreetmap.de/routed-foot/route/v1',
+            profile: 'foot-walking',
+            optimize: false
+          })
+        }).addTo(this.map);
+        
+        segment.routingControl = routingControl;
+      });
+    });
+
+    // Recreate polygons
+    this.savedPolygons.forEach(polygon => {
+      const leafletPolygon = L.polygon(polygon.points, {
+        color: polygon.color,
+        weight: 3,
+        opacity: 0.8,
+        fillOpacity: 0.3
+      }).addTo(this.map);
+      
+      polygon.leafletPolygon = leafletPolygon;
+    });
+
+    // Interest point markers are already recreated in loadSession
+  }
+
+  private createInterestPointMarker(point: Omit<InterestPoint, 'leafletMarker'>): L.Marker {
+    const pointType = this.pointTypes.find(t => t.id === point.typeId);
+    if (!pointType) throw new Error(`Point type not found: ${point.typeId}`);
+
+    const marker = L.marker(point.position, {
+      icon: L.divIcon({
+        className: 'interest-point-marker',
+        html: `<div style="background: ${pointType.color}; color: white; width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 14px; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.2);">${pointType.icon}</div>`,
+        iconSize: [28, 28],
+        iconAnchor: [14, 14]
+      })
+    }).addTo(this.map);
+
+    return marker;
+  }
+
+  private updateAllLists(): void {
+    this.updatePathwaysList();
+    this.updateInterestPointsList();
+    this.updatePointTypeDropdown();
+    // TODO: Add polygon list update when that method exists
+  }
+
+  private updateSessionUI(): void {
+    const sessionNameSpan = document.getElementById('current-session-name');
+    if (sessionNameSpan && this.currentSession) {
+      sessionNameSpan.textContent = this.currentSession.name;
+    }
+  }
+
+  private saveSessionsToStorage(): void {
+    try {
+      const sessionsData = this.allSessions.map(session => ({
+        id: session.id,
+        name: session.name,
+        createdAt: session.createdAt,
+        lastModified: session.lastModified,
+        paths: session.paths.map(path => ({
+          id: path.id,
+          name: path.name,
+          color: path.color,
+          createdAt: path.createdAt,
+          visible: path.visible,
+          segments: path.segments.map(segment => ({
+            id: segment.id,
+            waypoints: segment.waypoints.map(wp => ({ lat: wp.lat, lng: wp.lng })),
+            editable: segment.editable,
+            isHighlighted: segment.isHighlighted
+            // Exclude routingControl - will be recreated
+          }))
+        })),
+        polygons: session.polygons.map(polygon => ({
+          id: polygon.id,
+          name: polygon.name,
+          color: polygon.color,
+          createdAt: polygon.createdAt,
+          visible: polygon.visible,
+          points: polygon.points.map(point => ({ lat: point.lat, lng: point.lng }))
+          // Exclude leafletPolygon - will be recreated
+        })),
+        interestPointTypes: session.interestPointTypes.map(type => ({
+          id: type.id,
+          name: type.name,
+          color: type.color,
+          icon: type.icon,
+          createdAt: type.createdAt
+        })),
+        interestPoints: session.interestPoints.map(point => ({
+          id: point.id,
+          typeId: point.typeId,
+          name: point.name,
+          description: point.description,
+          position: { lat: point.position.lat, lng: point.position.lng },
+          createdAt: point.createdAt
+          // Exclude leafletMarker - will be recreated
+        })),
+        mapCenter: { lat: session.mapCenter.lat, lng: session.mapCenter.lng },
+        mapZoom: session.mapZoom
+      }));
+
+      localStorage.setItem('mapBuilderSessions', JSON.stringify(sessionsData));
+      console.log(`Saved ${sessionsData.length} sessions to storage`);
+    } catch (error) {
+      console.error('Failed to save sessions:', error);
+      alert('Failed to save sessions to storage');
+    }
+  }
+
+  private loadSessionsFromStorage(): void {
+    try {
+      const stored = localStorage.getItem('mapBuilderSessions');
+      if (!stored) return;
+
+      const sessionsData = JSON.parse(stored);
+      this.allSessions = sessionsData.map((sessionData: any) => ({
+        ...sessionData,
+        createdAt: new Date(sessionData.createdAt),
+        lastModified: new Date(sessionData.lastModified),
+        paths: sessionData.paths.map((path: any) => ({
+          ...path,
+          createdAt: new Date(path.createdAt),
+          segments: path.segments.map((segment: any) => ({
+            ...segment,
+            waypoints: segment.waypoints.map((wp: any) => L.latLng(wp.lat, wp.lng)),
+            routingControl: null // Will be recreated when loading session
+          }))
+        })),
+        polygons: sessionData.polygons.map((polygon: any) => ({
+          ...polygon,
+          createdAt: new Date(polygon.createdAt),
+          points: polygon.points.map((point: any) => L.latLng(point.lat, point.lng)),
+          leafletPolygon: null // Will be recreated when loading session
+        })),
+        interestPointTypes: sessionData.interestPointTypes.map((type: any) => ({
+          ...type,
+          createdAt: new Date(type.createdAt)
+        })),
+        interestPoints: sessionData.interestPoints.map((point: any) => ({
+          ...point,
+          createdAt: new Date(point.createdAt),
+          position: L.latLng(point.position.lat, point.position.lng)
+        })),
+        mapCenter: L.latLng(sessionData.mapCenter.lat, sessionData.mapCenter.lng)
+      }));
+
+      console.log(`Loaded ${this.allSessions.length} sessions from storage`);
+    } catch (error) {
+      console.error('Failed to load sessions:', error);
+      this.allSessions = [];
+    }
+  }
+
+  private showSessionMessage(message: string, type: 'success' | 'info' | 'warning' | 'error' = 'info'): void {
+    // Create message element
+    const messageEl = document.createElement('div');
+    messageEl.className = `session-message session-message-${type}`;
+    messageEl.textContent = message;
+    
+    // Style the message
+    Object.assign(messageEl.style, {
+      position: 'fixed',
+      top: '20px',
+      right: '20px',
+      padding: '12px 16px',
+      borderRadius: '4px',
+      color: 'white',
+      fontWeight: 'bold',
+      fontSize: '14px',
+      zIndex: '10000',
+      maxWidth: '300px',
+      boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
+      transform: 'translateX(100%)',
+      transition: 'transform 0.3s ease-in-out'
+    });
+
+    // Set background color based on type
+    const colors = {
+      success: '#28a745',
+      info: '#17a2b8', 
+      warning: '#ffc107',
+      error: '#dc3545'
+    };
+    messageEl.style.backgroundColor = colors[type];
+    if (type === 'warning') messageEl.style.color = '#000';
+
+    // Add to page
+    document.body.appendChild(messageEl);
+
+    // Animate in
+    setTimeout(() => {
+      messageEl.style.transform = 'translateX(0)';
+    }, 100);
+
+    // Auto remove after 3 seconds
+    setTimeout(() => {
+      messageEl.style.transform = 'translateX(100%)';
+      setTimeout(() => {
+        if (messageEl.parentNode) {
+          messageEl.parentNode.removeChild(messageEl);
+        }
+      }, 300);
+    }, 3000);
   }
 }
 
