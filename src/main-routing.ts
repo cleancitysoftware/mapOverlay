@@ -243,17 +243,7 @@ class PathBuilderApp {
 
     console.log('Path mode - Map clicked at:', e.latlng);
     
-    // Add waypoint marker
-    const marker = L.marker(e.latlng, {
-      icon: L.divIcon({
-        className: 'waypoint-marker',
-        html: `<div style="background: ${this.currentWaypoints.length === 0 ? '#28a745' : '#007bff'}; width: 12px; height: 12px; border-radius: 50%; border: 2px solid white;"></div>`,
-        iconSize: [16, 16],
-        iconAnchor: [8, 8]
-      })
-    }).addTo(this.map);
-
-    this.tempMarkers.push(marker);
+    // Store waypoint (no visible marker for cleaner UI)
     this.currentWaypoints.push(e.latlng);
 
     // If we have at least 2 waypoints, create a route segment
@@ -325,18 +315,8 @@ class PathBuilderApp {
     // Keep only the last waypoint for the next segment
     this.currentWaypoints = [this.currentWaypoints[this.currentWaypoints.length - 1]];
     
-    // Clear temp markers except the last one
+    // Clear any temp markers (no visible waypoint markers for cleaner UI)
     this.clearTempMarkers();
-    const lastMarker = L.marker(segment.waypoints[segment.waypoints.length - 1], {
-      icon: L.divIcon({
-        className: 'waypoint-marker',
-        html: '<div style="background: #28a745; width: 12px; height: 12px; border-radius: 50%; border: 2px solid white;"></div>',
-        iconSize: [16, 16],
-        iconAnchor: [8, 8]
-      })
-    }).addTo(this.map);
-    
-    this.tempMarkers.push(lastMarker);
 
     this.updateSegmentsList();
     this.updateUI(); // Enable finish button now that we have segments
