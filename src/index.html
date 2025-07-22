@@ -45,6 +45,21 @@
             <ul id="segments"></ul>
           </div>
 
+          <!-- Path Animation Controls -->
+          <div id="path-animation-section">
+            <h4>Path Animation</h4>
+            <div id="animation-controls">
+              <label for="animation-speed">Speed:</label>
+              <input type="range" id="animation-speed" min="1" max="10" value="5" step="1">
+              <div id="speed-labels">
+                <span>Slow</span>
+                <span>Fast</span>
+              </div>
+              <button id="animate-path" disabled>Select a Path to Animate</button>
+              <button id="stop-animation" disabled>Stop Animation</button>
+            </div>
+          </div>
+
           <!-- Saved Pathways -->
           <div id="pathways-section">
             <h4>Saved Pathways</h4>

@@ -71,6 +71,13 @@ class PathBuilderApp {
   private interestPoints: InterestPoint[] = [];
   private animatingPoints: Set<string> = new Set();
 
+  // Path Animation properties
+  private selectedPath: CompletePath | null = null;
+  private animationMarker: L.Marker | null = null;
+  private animationSpeed: number = 5; // 1-10 scale
+  private animationRunning: boolean = false;
+  private animationRequestId: number | null = null;
+
   constructor() {
     this.initializeMap();
     this.setupEventListeners();
@@ -146,6 +153,17 @@ class PathBuilderApp {
     });
     stopPlacementBtn?.addEventListener('click', () => this.stopPointPlacement());
 
+    // Path Animation controls
+    const animatePathBtn = document.getElementById('animate-path');
+    const stopAnimationBtn = document.getElementById('stop-animation');
+    const speedSlider = document.getElementById('animation-speed') as HTMLInputElement;
+
+    animatePathBtn?.addEventListener('click', () => this.startPathAnimation());
+    stopAnimationBtn?.addEventListener('click', () => this.stopPathAnimation());
+    speedSlider?.addEventListener('input', (e) => {
+      this.animationSpeed = parseInt((e.target as HTMLInputElement).value);
+    });
+
     // Walkways toggle
     const showWalkwaysCheckbox = document.getElementById('show-walkways') as HTMLInputElement;
     showWalkwaysCheckbox?.addEventListener('change', (e) => {
@@ -158,6 +176,9 @@ class PathBuilderApp {
 
     // Initialize with some default point types
     this.initializeDefaultPointTypes();
+    
+    // Initialize animation controls
+    this.updateAnimationControls();
   }
 
   private startNewPath(): void {
@@ -249,6 +270,7 @@ class PathBuilderApp {
         styles: [{ color: '#28a745', weight: 4, opacity: 0.8 }]
       },
       show: false, // Hide the directions panel
+      fitSelectedRoutes: false, // Prevent auto-zoom when route is calculated
       router: L.Routing.osrmv1({
         serviceUrl: 'https://routing.openstreetmap.de/routed-foot/route/v1',
         profile: 'foot-walking', // Proper walking profile on walking server
@@ -317,11 +339,7 @@ class PathBuilderApp {
       });
     }
 
-    // Focus the map on the selected segment without recreating controls
-    if (segment.waypoints.length > 0) {
-      const bounds = L.latLngBounds(segment.waypoints);
-      this.map.fitBounds(bounds, { padding: [20, 20] });
-    }
+    // Removed auto-zoom to avoid disrupting path building workflow
 
     // Add a temporary red overlay for highlighting
     const redOverlay = L.polyline(segment.waypoints, {
@@ -461,6 +479,7 @@ class PathBuilderApp {
           styles: [{ color: color, weight: 4, opacity: 0.8 }]
         },
         show: false,
+        fitSelectedRoutes: false, // Prevent auto-zoom when route is calculated
         router: L.Routing.osrmv1({
           serviceUrl: 'https://routing.openstreetmap.de/routed-foot/route/v1',
           profile: 'foot-walking',
@@ -498,12 +517,13 @@ class PathBuilderApp {
       const li = document.createElement('li');
       li.className = 'pathway-item';
       li.innerHTML = `
-        <div class="pathway-info">
+        <div class="pathway-info ${this.selectedPath?.id === path.id ? 'selected-path' : ''}">
           <span class="pathway-color" style="background-color: ${path.color}"></span>
           <span class="pathway-name">${path.name}</span>
           <span class="pathway-segments">(${path.segments.length} segments)</span>
         </div>
         <div class="pathway-actions">
+          <button class="select-btn" data-path-id="${path.id}">🎯</button>
           <button class="highlight-btn" data-path-id="${path.id}">👁️</button>
           <button class="edit-btn" data-path-id="${path.id}">✏️</button>
           <button class="delete-btn" data-path-id="${path.id}">🗑️</button>
@@ -511,10 +531,12 @@ class PathBuilderApp {
       `;
 
       // Add event listeners for pathway actions
+      const selectBtn = li.querySelector('.select-btn');
       const highlightBtn = li.querySelector('.highlight-btn');
       const editBtn = li.querySelector('.edit-btn');
       const deleteBtn = li.querySelector('.delete-btn');
 
+      selectBtn?.addEventListener('click', () => this.selectPathForAnimation(path));
       highlightBtn?.addEventListener('click', () => this.highlightPath(path));
       editBtn?.addEventListener('click', () => this.editPathName(path));
       deleteBtn?.addEventListener('click', () => this.deletePath(path));
@@ -539,12 +561,7 @@ class PathBuilderApp {
       (segment as any).highlightOverlay = highlightOverlay;
     });
     
-    // Zoom to show entire path
-    if (path.segments.length > 0) {
-      const allWaypoints = path.segments.flatMap(s => s.waypoints);
-      const bounds = L.latLngBounds(allWaypoints);
-      this.map.fitBounds(bounds, { padding: [20, 20] });
-    }
+    // Removed auto-zoom to avoid disrupting workflow - user can zoom manually if needed
   }
 
   private editPathName(path: CompletePath): void {
@@ -1214,6 +1231,197 @@ class PathBuilderApp {
       this.interestPoints = this.interestPoints.filter(p => p.id !== point.id);
       this.updateInterestPointsList();
     }
+  }
+
+  // Path Animation Methods
+  private selectPathForAnimation(path: CompletePath): void {
+    this.stopPathAnimation(); // Stop any current animation
+    this.selectedPath = path;
+    this.updatePathwaysList();
+    this.updateAnimationControls();
+    console.log(`Selected path "${path.name}" for animation`);
+    
+    // Auto-start animation when selecting a path
+    this.startPathAnimation();
+  }
+
+  private updateAnimationControls(): void {
+    const animateBtn = document.getElementById('animate-path') as HTMLButtonElement;
+    const stopBtn = document.getElementById('stop-animation') as HTMLButtonElement;
+
+    if (this.selectedPath) {
+      if (this.animationRunning) {
+        animateBtn.disabled = true;
+        animateBtn.textContent = `Animating "${this.selectedPath.name}"`;
+        stopBtn.disabled = false;
+      } else {
+        animateBtn.disabled = false;
+        animateBtn.textContent = `Start "${this.selectedPath.name}"`;
+        stopBtn.disabled = true;
+      }
+    } else {
+      animateBtn.disabled = true;
+      animateBtn.textContent = 'Select a Path to Animate';
+      stopBtn.disabled = true;
+    }
+  }
+
+  private startPathAnimation(): void {
+    if (!this.selectedPath || this.animationRunning) return;
+
+    console.log(`Starting animation for path: ${this.selectedPath.name}`);
+    this.animationRunning = true;
+    this.updateAnimationControls();
+
+    // Create animation marker
+    this.animationMarker = L.marker([0, 0], {
+      icon: L.divIcon({
+        className: 'leaflet-div-icon',
+        html: '<div style="width: 20px; height: 20px; background: #ff6b35; border: 3px solid white; border-radius: 50%; box-shadow: 0 0 10px rgba(255, 107, 53, 0.8); animation: pathMarkerPulse 1.5s ease-in-out infinite alternate;"></div>',
+        iconSize: [26, 26],
+        iconAnchor: [13, 13]
+      })
+    });
+    
+    console.log('Animation marker created:', this.animationMarker);
+    this.animationMarker.addTo(this.map);
+    console.log('Animation marker added to map');
+
+    // Start the animation loop
+    this.animateAlongPath();
+  }
+
+  private stopPathAnimation(): void {
+    this.animationRunning = false;
+    
+    if (this.animationRequestId) {
+      cancelAnimationFrame(this.animationRequestId);
+      this.animationRequestId = null;
+    }
+
+    if (this.animationMarker) {
+      this.map.removeLayer(this.animationMarker);
+      this.animationMarker = null;
+    }
+
+    this.updateAnimationControls();
+    console.log('Animation stopped');
+  }
+
+  private animateAlongPath(): void {
+    if (!this.selectedPath || !this.animationMarker || !this.animationRunning) return;
+
+    // Collect all route coordinates from all segments
+    const allCoordinates: L.LatLng[] = [];
+    
+    this.selectedPath.segments.forEach((segment, segmentIndex) => {
+      console.log(`Processing segment ${segmentIndex + 1}:`);
+      const routingControl = segment.routingControl as any;
+      
+      // Try to get detailed route coordinates
+      let segmentCoords: L.LatLng[] = [];
+      
+      if (routingControl && routingControl._routes && routingControl._routes.length > 0) {
+        const route = routingControl._routes[0];
+        console.log('Route object:', route);
+        
+        if (route.coordinates && Array.isArray(route.coordinates)) {
+          console.log('Raw coordinates array:', route.coordinates.slice(0, 3));
+          route.coordinates.forEach((coord: any) => {
+            if (coord && Array.isArray(coord) && coord.length >= 2) {
+              segmentCoords.push(L.latLng(coord[1], coord[0])); // OSRM returns [lng, lat]
+            } else if (coord && typeof coord.lat === 'number' && typeof coord.lng === 'number') {
+              segmentCoords.push(L.latLng(coord.lat, coord.lng)); // Already LatLng objects
+            } else if (coord && coord.lat && coord.lng) {
+              segmentCoords.push(L.latLng(coord.lat, coord.lng)); // LatLng-like objects
+            }
+          });
+          console.log(`Found ${segmentCoords.length} detailed coordinates`);
+        } else if (route.waypoints && Array.isArray(route.waypoints)) {
+          route.waypoints.forEach((wp: any) => {
+            if (wp && wp.latLng) {
+              segmentCoords.push(wp.latLng);
+            }
+          });
+          console.log(`Found ${segmentCoords.length} waypoint coordinates`);
+        }
+      }
+      
+      // Fallback to segment waypoints if no detailed route found
+      if (segmentCoords.length === 0) {
+        console.log('Using segment waypoints as fallback');
+        segment.waypoints.forEach(wp => {
+          if (wp && typeof wp.lat === 'number' && typeof wp.lng === 'number') {
+            segmentCoords.push(wp);
+          }
+        });
+      }
+      
+      console.log(`Adding ${segmentCoords.length} coordinates from segment ${segmentIndex + 1}`);
+      allCoordinates.push(...segmentCoords);
+    });
+
+    if (allCoordinates.length === 0) {
+      console.log('No valid coordinates found for animation');
+      this.stopPathAnimation();
+      return;
+    }
+
+    console.log(`Total coordinates for animation: ${allCoordinates.length}`);
+    console.log('First few coordinates:', allCoordinates.slice(0, 3));
+
+    // Animation parameters based on speed slider (1-10 -> actual speeds)
+    // Much slower slow end, keeping fast end very fast for cool effect
+    const baseSpeed = [15000, 10000, 7000, 5000, 3000, 2000, 1200, 600, 200, 50][this.animationSpeed - 1]; // ms for full path (1=very slow, 10=very fast)
+    const totalDuration = baseSpeed;
+    const startTime = Date.now();
+
+    const animate = () => {
+      if (!this.animationRunning || !this.animationMarker) return;
+
+      const elapsed = Date.now() - startTime;
+      const progress = (elapsed % totalDuration) / totalDuration;
+      
+      // Calculate position along path
+      const totalPoints = allCoordinates.length;
+      const currentIndex = Math.floor(progress * (totalPoints - 1));
+      const nextIndex = Math.min(currentIndex + 1, totalPoints - 1);
+      
+      // Safety checks
+      if (currentIndex >= totalPoints || currentIndex < 0) {
+        console.log(`Invalid currentIndex: ${currentIndex} (totalPoints: ${totalPoints})`);
+        return;
+      }
+      
+      const current = allCoordinates[currentIndex];
+      const next = allCoordinates[nextIndex];
+      
+      // Ensure coordinates are valid
+      if (!current || typeof current.lat !== 'number' || typeof current.lng !== 'number') {
+        console.log(`Invalid current coordinate at index ${currentIndex}:`, current);
+        return;
+      }
+      
+      if (!next || typeof next.lat !== 'number' || typeof next.lng !== 'number') {
+        console.log(`Invalid next coordinate at index ${nextIndex}:`, next);
+        return;
+      }
+      
+      // Interpolate between current and next points for smooth movement
+      const segmentProgress = (progress * (totalPoints - 1)) - currentIndex;
+      const lat = current.lat + (next.lat - current.lat) * segmentProgress;
+      const lng = current.lng + (next.lng - current.lng) * segmentProgress;
+      
+      if (Math.floor(elapsed / 100) !== Math.floor((elapsed - 16) / 100)) { // Log every ~100ms
+        console.log(`Animation progress: ${(progress * 100).toFixed(1)}% - Position: [${lat.toFixed(6)}, ${lng.toFixed(6)}]`);
+      }
+      
+      this.animationMarker.setLatLng([lat, lng]);
+
+      this.animationRequestId = requestAnimationFrame(animate);
+    };
+
+    animate();
   }
 }
 

@@ -102,8 +102,40 @@ body {
   width: 100%;
 }
 
-#pathways-section {
+#path-animation-section {
   margin-top: 20px;
+  border-top: 1px solid #ddd;
+  padding-top: 15px;
+  margin-bottom: 15px;
+}
+
+#animation-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+#animation-controls label {
+  font-weight: bold;
+  margin: 0;
+}
+
+#animation-speed {
+  width: 100%;
+  margin: 5px 0;
+}
+
+#speed-labels {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  color: #666;
+  margin-top: -5px;
+  margin-bottom: 10px;
+}
+
+#pathways-section {
+  margin-top: 15px;
   border-top: 1px solid #ddd;
   padding-top: 15px;
 }
@@ -125,6 +157,13 @@ body {
   align-items: center;
   gap: 8px;
   flex: 1;
+}
+
+.pathway-info.selected-path {
+  background: #e8f5e8;
+  padding: 4px 8px;
+  border-radius: 4px;
+  border: 2px solid #28a745;
 }
 
 .pathway-color {
@@ -172,6 +211,10 @@ body {
 
 .edit-btn:hover {
   background: #d1ecf1;
+}
+
+.select-btn:hover {
+  background: #d4edda;
 }
 
 .delete-btn:hover {
@@ -489,4 +532,27 @@ body {
 .faded .leaflet-routing-line {
   stroke-opacity: 0.3 !important;
   stroke-width: 2 !important;
+}
+
+/* Path Animation Marker */
+.path-animation-marker {
+  width: 16px;
+  height: 16px;
+  background: #ff6b35;
+  border: 3px solid #ffffff;
+  border-radius: 50%;
+  box-shadow: 0 0 10px rgba(255, 107, 53, 0.8);
+  z-index: 1003;
+  animation: pathMarkerPulse 1.5s ease-in-out infinite alternate;
+}
+
+@keyframes pathMarkerPulse {
+  0% { 
+    transform: scale(1); 
+    box-shadow: 0 0 10px rgba(255, 107, 53, 0.8);
+  }
+  100% { 
+    transform: scale(1.2); 
+    box-shadow: 0 0 15px rgba(255, 107, 53, 1);
+  }
 }
